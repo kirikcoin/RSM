@@ -31,7 +31,7 @@ public class PersistedSessionSerializerTest {
     final byte[] bytes;
     {
       final PersistedSessionMetadata metadata = new PersistedSessionMetadata();
-      metadata.setAttrHash(new byte[]{0x01, 0x02, 0x42});
+      metadata.setAttrHash(-10L);
 
       final PersistedSession session = new PersistedSession();
       session.creationTime = 123456L;
@@ -54,7 +54,7 @@ public class PersistedSessionSerializerTest {
     final PersistedSession session = new PersistedSession();
     serializer.deserialize(bytes, session, metadata);
 
-    assertArrayEquals(new byte[]{0x01, 0x02, 0x42}, metadata.getAttrHash());
+    assertEquals(-10L, metadata.getAttrHash());
 
     assertEquals(123456L, session.creationTime);
     assertEquals("test-session-id", session.id);

@@ -9,12 +9,19 @@ import org.msgpack.core.MessageUnpacker;
 import org.msgpack.value.ValueFactory;
 
 import java.io.IOException;
+import java.math.BigInteger;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Map;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
+/**
+ * Notes on Redis `cmsgpack` compatibility:
+ *
+ * <ol>
+ *   <li>Avoid using byte arrays due to encoding differences.
+ * </ol>
+ */
 public class SessionSerializer {
 
   private static final Logger log = Logger.getLogger(SessionSerializer.class.getName());
@@ -27,11 +34,12 @@ public class SessionSerializer {
     this.loader = loader;
   }
 
-  protected byte[] attributesHashFrom(Map<String, Object> attributes) throws IOException {
+  protected long attributesHashFrom(Map<String, Object> attributes) throws IOException {
     final MessageBufferPacker pack = MessagePack.newDefaultBufferPacker();
     pack.packValue(MsgPackUtil.asValue(attributes));
 
-    return getMessageDigest().digest(pack.toByteArray());
+    final byte[] digest = getMessageDigest().digest(pack.toByteArray());
+    return new BigInteger(digest).longValue();
   }
 
   private byte[] serialize(PersistedSession session,
@@ -41,7 +49,7 @@ public class SessionSerializer {
 
     // Write metadata.
 
-    pack.packValue(ValueFactory.newBinary(metadata.getAttrHash()));
+    pack.packValue(ValueFactory.newInteger(metadata.getAttrHash()));
 
     // Write session.
 
@@ -57,10 +65,6 @@ public class SessionSerializer {
 
     pack.packValue(MsgPackUtil.asValue(session.principalRoles));
     pack.packValue(MsgPackUtil.asValue(session.attributes));
-
-    if (log.isLoggable(Level.FINE)) {
-      log.fine("Packed session id = [" + session.id + "] into [" + pack.getTotalWrittenBytes() + "] bytes");
-    }
 
     return pack.toByteArray();
   }
@@ -78,7 +82,7 @@ public class SessionSerializer {
 
     // Read metadata.
 
-    metadata.setAttrHash(unpacker.unpackValue().asBinaryValue().asByteArray());
+    metadata.setAttrHash(unpacker.unpackValue().asNumberValue().toLong());
 
     // Read session.
 

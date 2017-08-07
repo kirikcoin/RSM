@@ -12,7 +12,7 @@ class RedisSessionSerializer extends SessionSerializer {
     super(loader);
   }
 
-  byte[] getAttributesHash(RedisSession session) throws IOException {
+  long getAttributesHash(RedisSession session) throws IOException {
     final HashMap<String, Object> attributes = new HashMap<>();
     for (Enumeration<String> e = session.getAttributeNames(); e.hasMoreElements(); ) {
       final String key = e.nextElement();

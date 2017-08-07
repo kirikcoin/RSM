@@ -8,17 +8,17 @@ import java.io.Serializable;
 public class PersistedSessionMetadata implements Serializable {
 
   /** Attributes hash, for dirty checking. */
-  private byte[] attrHash;
+  private long attrHash;
 
   public PersistedSessionMetadata() {
-    this.attrHash = new byte[0];
+    this.attrHash = 0;
   }
 
-  public byte[] getAttrHash() {
+  public long getAttrHash() {
     return attrHash;
   }
 
-  public void setAttrHash(byte[] attrHash) {
+  public void setAttrHash(long attrHash) {
     this.attrHash = attrHash;
   }
 

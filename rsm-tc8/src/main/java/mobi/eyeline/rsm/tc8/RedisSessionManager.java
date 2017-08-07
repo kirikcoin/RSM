@@ -1,7 +1,7 @@
 package mobi.eyeline.rsm.tc8;
 
-import mobi.eyeline.rsm.model.PersistedSessionMetadata;
 import mobi.eyeline.rsm.PersistenceStrategy;
+import mobi.eyeline.rsm.model.PersistedSessionMetadata;
 import mobi.eyeline.rsm.storage.RedisStorageClient;
 import mobi.eyeline.rsm.storage.StorageClient;
 import org.apache.catalina.Lifecycle;
@@ -9,7 +9,6 @@ import org.apache.catalina.LifecycleException;
 import org.apache.catalina.LifecycleState;
 import org.apache.catalina.Loader;
 import org.apache.catalina.Session;
-import org.apache.catalina.Valve;
 import org.apache.catalina.session.ManagerBase;
 import org.apache.juli.logging.Log;
 import org.apache.juli.logging.LogFactory;
@@ -71,9 +70,13 @@ public class RedisSessionManager extends ManagerBase implements Lifecycle {
   // END Manager configuration.
   //
 
+  Pattern getSkipUrlsPattern() {
+    return skipUrls;
+  }
 
-  boolean doSaveOnChange() {
-    return persistenceStrategy == PersistenceStrategy.ON_CHANGE;
+  boolean doSaveImmediate() {
+    // TODO: implement this mode.
+    return false;
   }
 
   private boolean doSaveAlways() {
@@ -95,9 +98,7 @@ public class RedisSessionManager extends ManagerBase implements Lifecycle {
 
     setState(LifecycleState.STARTING);
 
-    if (initValve() == null) {
-      throw new LifecycleException("Failed attaching to session handling valve.");
-    }
+    getContext().getPipeline().addValve(new RedisSessionHandlerValve(this));
 
     serializer = initializeSerializer();
 
@@ -106,18 +107,6 @@ public class RedisSessionManager extends ManagerBase implements Lifecycle {
     getContext().setDistributable(true);
 
     log.info("Session manager started OK");
-  }
-
-  private RedisSessionHandlerValve initValve() {
-    for (Valve valve : getContext().getPipeline().getValves()) {
-      if (valve instanceof RedisSessionHandlerValve) {
-        final RedisSessionHandlerValve handlerValve = (RedisSessionHandlerValve) valve;
-        handlerValve.setRedisSessionManager(this);
-        return handlerValve;
-      }
-    }
-
-    return null;
   }
 
   private int getSessionTimeoutSeconds() {
@@ -148,6 +137,10 @@ public class RedisSessionManager extends ManagerBase implements Lifecycle {
 
   @Override
   public Session createSession(String requestedSessionId) {
+    if (RedisSessionHandlerValve.shouldSkipSession()) {
+      return null;
+    }
+
     RedisSession session = null;
 
     final String sessionId = generateSessionId(requestedSessionId);
@@ -222,6 +215,10 @@ public class RedisSessionManager extends ManagerBase implements Lifecycle {
 
   @Override
   public Session findSession(String id) throws IOException {
+    if (RedisSessionHandlerValve.shouldSkipSession()) {
+      return null;
+    }
+
     if (id == null) {
       currentSessionIsPersisted.set(false);
       currentSession.set(null);
@@ -312,61 +309,54 @@ public class RedisSessionManager extends ManagerBase implements Lifecycle {
   private void saveInternal(Session session,
                             boolean forceSave) throws IOException {
 
-    try {
-      final RedisSession redisSession = (RedisSession) session;
+    final RedisSession redisSession = (RedisSession) session;
+
+    if (log.isTraceEnabled()) {
+      log.trace("Persisting session:" +
+          " ID = [" + session.getIdInternal() + "], contents: " + redisSession.dump());
+    }
+
+    final Boolean isCurrentSessionPersisted;
+    final PersistedSessionMetadata metadata = currentSessionSerializationMetadata.get();
+    final long originalSessionAttributesHash = metadata.getAttrHash();
+    Long sessionAttributesHash = null;
+    if (
+        forceSave
+            || redisSession.isDirty()
+            || null == (isCurrentSessionPersisted = this.currentSessionIsPersisted.get())
+            || !isCurrentSessionPersisted
+            || (originalSessionAttributesHash != (sessionAttributesHash = serializer.getAttributesHash(redisSession)))
+        ) {
 
       if (log.isTraceEnabled()) {
-        log.trace("Persisting session:" +
-            " ID = [" + session.getIdInternal() + "], contents: " + redisSession.dump());
+        log.trace("Save was determined to be necessary");
       }
 
-      final Boolean isCurrentSessionPersisted;
-      final PersistedSessionMetadata sessionSerializationMetadata = currentSessionSerializationMetadata.get();
-      final byte[] originalSessionAttributesHash = sessionSerializationMetadata.getAttrHash();
-      byte[] sessionAttributesHash = null;
-      if (
-          forceSave
-              || redisSession.isDirty()
-              || null == (isCurrentSessionPersisted = this.currentSessionIsPersisted.get())
-              || !isCurrentSessionPersisted
-              || !Arrays.equals(originalSessionAttributesHash, (sessionAttributesHash = serializer.getAttributesHash(redisSession)))
-          ) {
-
-        if (log.isTraceEnabled()) {
-          log.trace("Save was determined to be necessary");
-        }
-
-        if (sessionAttributesHash == null) {
-          sessionAttributesHash = serializer.getAttributesHash(redisSession);
-        }
-
-        final PersistedSessionMetadata updatedSerializationMetadata = new PersistedSessionMetadata();
-        updatedSerializationMetadata.setAttrHash(sessionAttributesHash);
-
-        try {
-          storageClient.set(
-              redisSession.getId(),
-              getSessionTimeoutSeconds(),
-              serializer.serialize(redisSession, updatedSerializationMetadata)
-          ).get();
-
-        } catch (InterruptedException | ExecutionException e) {
-          throw new IOException(e);
-        }
-
-        redisSession.resetDirtyTracking();
-        currentSessionSerializationMetadata.set(updatedSerializationMetadata);
-        currentSessionIsPersisted.set(true);
-
-      } else {
-        // XXX: should we set entry lifetime in Redis here?
-        log.trace("Save was determined to be unnecessary");
+      if (sessionAttributesHash == null) {
+        sessionAttributesHash = serializer.getAttributesHash(redisSession);
       }
 
-    } catch (IOException e) {
-      log.error(e.getMessage());
+      final PersistedSessionMetadata updatedSerializationMetadata = new PersistedSessionMetadata();
+      updatedSerializationMetadata.setAttrHash(sessionAttributesHash);
 
-      throw e;
+      try {
+        storageClient.set(
+            redisSession.getId(),
+            getSessionTimeoutSeconds(),
+            serializer.serialize(redisSession, updatedSerializationMetadata)
+        ).get();
+
+      } catch (InterruptedException | ExecutionException e) {
+        throw new IOException(e);
+      }
+
+      redisSession.resetDirtyTracking();
+      currentSessionSerializationMetadata.set(updatedSerializationMetadata);
+      currentSessionIsPersisted.set(true);
+
+    } else {
+      // XXX: should we set entry lifetime in Redis here?
+      log.trace("Save was determined to be unnecessary");
     }
   }
 
@@ -385,15 +375,25 @@ public class RedisSessionManager extends ManagerBase implements Lifecycle {
   }
 
   void afterRequest() {
+    if (RedisSessionHandlerValve.shouldSkipSession()) {
+      return;
+    }
+
     final RedisSession redisSession = currentSession.get();
     if (redisSession != null) {
       try {
         if (redisSession.isValid()) {
-          log.trace("Request with session completed, saving session: " + redisSession.getId());
+          if (log.isTraceEnabled()) {
+            log.trace("Request with session completed, saving session: " + redisSession.getId());
+          }
+
           save(redisSession, doSaveAlways());
 
         } else {
-          log.trace("HTTP Session has been invalidated, removing: " + redisSession.getId());
+          if (log.isTraceEnabled()) {
+            log.trace("HTTP Session has been invalidated, removing: " + redisSession.getId());
+          }
+
           remove(redisSession);
         }
 
@@ -404,7 +404,10 @@ public class RedisSessionManager extends ManagerBase implements Lifecycle {
         currentSession.remove();
         currentSessionId.remove();
         currentSessionIsPersisted.remove();
-        log.trace("Session removed from ThreadLocal :" + redisSession.getIdInternal());
+
+        if (log.isTraceEnabled()) {
+          log.trace("Session removed from ThreadLocal: " + redisSession.getIdInternal());
+        }
       }
     }
   }

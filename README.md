@@ -26,22 +26,18 @@ To build fat JAR with all the dependencies embedded, run
 
 ## Tomcat v8.5+
 
-- Copy resulting JAR, `rsm-tc8-<version>-all.jar` into `$CATALINA_BASE/lib`.
+- Copy resulting JAR, `rsm-tc8-<version>-all.jar` into `$CATALINA_HOME/lib`.
 Note that it cannot be deployed with the web application itself and **has to** be placed along with 
 Tomcat's internal libraries.
   
 - Set up `context.xml` in web application to use persisted sessions:
 
-    <Context>
-    
-      <Valve className="mobi.eyeline.rsm.tc8.RedisSessionHandlerValve"/>
-      
-      <Manager className="mobi.eyeline.rsm.tc8.RedisSessionManager"
-               dbUrl="redis://localhost:6379"
-               persistenceStrategy="always"
-      />
-    
-    </Context>
+      <Context>      
+        <Manager className="mobi.eyeline.rsm.tc8.RedisSessionManager"
+                 dbUrl="redis://localhost:6379"
+                 persistenceStrategy="always"
+        />      
+      </Context>
     
 ### Manager options
 
@@ -55,4 +51,47 @@ Possible values:
   - `always` -- save always,
   - `on_change` -- save only if the implementation determines the session contents have changed.
 
-Defaults to `always`.
+  Defaults to `always`.
+
+- `skipUrls`, optional. If set, should contain Java regular expression.
+  For any request URIs matching this expression session won't be created and/or loaded, saved etc. 
+  (just as if request contained no session cookie, even if it actually had). 
+  This might be useful for serving static resources, performance-wise.
+  
+  By default no URIs are skipped.
+  
+  **Example**: making requests to `.js` and `.js.faces` resources 
+  (possibly ending with `?ln=...` query string) session-less.
+ 
+      .*\.(js|js\.faces)(\?ln=.*)?$
+
+# Debugging
+
+## Show session contents
+
+Thanks to embedded Lua `cmsgpack` module, use the following script in Redis CLI:
+
+    eval "return {cmsgpack.unpack(redis.call('GET', ARGV[1]))};" 0 <Session ID>
+    
+Example:
+
+    127.0.0.1:6379> eval "return {cmsgpack.unpack(redis.call('GET', ARGV[1]))};" 0 DBD6DD67314082987E33590E0EDB2B8C
+     1) (integer) -3869785235283313664
+     2) (integer) 1502092058281
+     3) (integer) 1502092058281
+     4) (integer) 3600
+     5) (nil)
+     6) (integer) 1
+     7) (integer) 1502094647867
+     8) "DBD6DD67314082987E33590E0EDB2B8C"
+     9) "tester"
+     10)  1) "ADMIN"
+          2) "CLIENTS"
+     ... output truncated ...
+ 
+## Logs
+
+To enable verbose logging, append the following line to `$CATALINA_HOME/logging.properties`:
+
+    mobi.eyeline.rsm.level = FINEST
+

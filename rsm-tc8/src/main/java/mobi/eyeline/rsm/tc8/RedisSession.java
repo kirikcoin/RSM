@@ -1,7 +1,7 @@
 package mobi.eyeline.rsm.tc8;
 
-import mobi.eyeline.rsm.model.PersistedSession;
 import mobi.eyeline.rsm.model.PersistableSession;
+import mobi.eyeline.rsm.model.PersistedSession;
 import org.apache.catalina.Manager;
 import org.apache.catalina.realm.GenericPrincipal;
 import org.apache.catalina.session.StandardSession;
@@ -41,21 +41,23 @@ public class RedisSession extends StandardSession implements PersistableSession 
 
   @Override
   public void setAttribute(String key, Object value) {
-    final Object oldValue = getAttribute(key);
+    final Object prevValue = getAttribute(key);
     super.setAttribute(key, value);
 
     //
     //  Check if changed and persist if necessary.
     //
-    if ((value != null || oldValue != null) &&
-        (value == null || oldValue == null || !value.getClass().isInstance(oldValue) || !value.equals(oldValue))) {
-      if (this.manager instanceof RedisSessionManager
-          && ((RedisSessionManager) this.manager).doSaveOnChange()) {
+    final RedisSessionManager manager = (RedisSessionManager) this.manager;
+    if ((value != null || prevValue != null) &&
+        (value == null || prevValue == null || !value.getClass().isInstance(prevValue) || !value.equals(prevValue))) {
+      if (manager.doSaveImmediate()) {
         try {
-          ((RedisSessionManager) this.manager).save(this, true);
-        } catch (IOException ex) {
-          log.error("Error saving session on setAttribute (triggered by saveOnChange=true): " + ex.getMessage());
+          manager.save(this, true);
+
+        } catch (IOException e) {
+          log.error("Error saving session on setAttribute", e);
         }
+
       } else {
         changedAttributes.put(key, value);
       }
@@ -68,13 +70,16 @@ public class RedisSession extends StandardSession implements PersistableSession 
   @Override
   public void removeAttribute(String name) {
     super.removeAttribute(name);
-    if (this.manager instanceof RedisSessionManager
-        && ((RedisSessionManager) this.manager).doSaveOnChange()) {
+
+    final RedisSessionManager manager = (RedisSessionManager) this.manager;
+    if (manager.doSaveImmediate()) {
       try {
-        ((RedisSessionManager) this.manager).save(this, true);
-      } catch (IOException ex) {
-        log.error("Error saving session on setAttribute (triggered by saveOnChange=true): " + ex.getMessage());
+        manager.save(this, true);
+
+      } catch (IOException e) {
+        log.error("Error saving session on removeAttribute", e);
       }
+
     } else {
       dirty = true;
     }
@@ -82,9 +87,6 @@ public class RedisSession extends StandardSession implements PersistableSession 
 
   @Override
   public void setId(String id) {
-    // Specifically do not call super(): it's implementation does unexpected things
-    // like calling manager.remove(session.id) and manager.add(session).
-
     this.id = id;
   }
 
@@ -149,12 +151,9 @@ public class RedisSession extends StandardSession implements PersistableSession 
       notes = new Hashtable<>();
     }
 
-    if (rc.principalName != null) {
-      this.principal = new GenericPrincipal(rc.principalName, null, Arrays.asList(rc.principalRoles));
-    } else {
-      this.principal = null;
-    }
-
+    this.principal = rc.principalName != null ?
+        new GenericPrincipal(rc.principalName, null, Arrays.asList(rc.principalRoles)) :
+        null;
   }
 
   private void dump(StringBuilder buf) {

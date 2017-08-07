@@ -53,7 +53,10 @@ public class RedisStorageClient implements StorageClient {
   @Override
   public Future<Boolean> setIfAbsent(final String key, final int lifetimeSeconds, final byte[] payload) {
     if (log.isLoggable(Level.FINE)) {
-      log.fine("setIfAbsent: key = [" + key + "], lifetimeSeconds = [" + lifetimeSeconds + "]");
+      log.fine("setIfAbsent:" +
+          " key = [" + key + "]," +
+          " lifetimeSeconds = [" + lifetimeSeconds + "]," +
+          " payload size = " + (payload == null ? "null" : payload.length));
     }
 
     return submit(jedis -> {
@@ -77,7 +80,10 @@ public class RedisStorageClient implements StorageClient {
   @Override
   public Future<Boolean> set(final String key, final int lifetimeSeconds, final byte[] payload) {
     if (log.isLoggable(Level.FINE)) {
-      log.fine("set: key = [" + key + "], lifetimeSeconds = [" + lifetimeSeconds + "]");
+      log.fine("set:" +
+          " key = [" + key + "]," +
+          " lifetimeSeconds = [" + lifetimeSeconds + "]," +
+          " payload size = " + (payload == null ? "null" : payload.length));
     }
 
     return submit(jedis -> lifetimeSeconds == 0 ?
@@ -109,6 +115,8 @@ public class RedisStorageClient implements StorageClient {
   }
 
   private <T> Future<T> submit(Function<Jedis, T> task) {
+    final long startMillis = log.isLoggable(Level.FINER) ? System.currentTimeMillis() : 0;
+
     return executor.submit(() -> {
       try (Jedis jedis = jedisPool.getResource()) {
         return task.apply(jedis);
@@ -116,6 +124,11 @@ public class RedisStorageClient implements StorageClient {
       } catch (Exception e) {
         log.log(Level.WARNING, "Failed executing command", e);
         throw e;
+
+      } finally {
+        if (startMillis > 0) {
+          log.finer("Operation time, ms.: " + (System.currentTimeMillis() - startMillis));
+        }
       }
     });
   }
