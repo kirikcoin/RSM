@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/rsm.iml" filepath="$PROJECT_DIR$/.idea/modules/rsm.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/rsm-core.iml" filepath="$PROJECT_DIR$/.idea/modules/rsm-core.iml" group="rsm-core" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/rsm-core/rsm-core_main.iml" filepath="$PROJECT_DIR$/.idea/modules/rsm-core/rsm-core_main.iml" group="rsm-core" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/rsm-core/rsm-core_test.iml" filepath="$PROJECT_DIR$/.idea/modules/rsm-core/rsm-core_test.iml" group="rsm-core" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/rsm-tc8.iml" filepath="$PROJECT_DIR$/.idea/modules/rsm-tc8.iml" group="rsm-tc8" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/rsm-tc8/rsm-tc8_main.iml" filepath="$PROJECT_DIR$/.idea/modules/rsm-tc8/rsm-tc8_main.iml" group="rsm-tc8" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/rsm-tc8/rsm-tc8_test.iml" filepath="$PROJECT_DIR$/.idea/modules/rsm-tc8/rsm-tc8_test.iml" group="rsm-tc8" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/rsm_main.iml" filepath="$PROJECT_DIR$/.idea/modules/rsm_main.iml" group="rsm" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/rsm_test.iml" filepath="$PROJECT_DIR$/.idea/modules/rsm_test.iml" group="rsm" />
+    </modules>
+  </component>
+</project>

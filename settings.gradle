@@ -1,0 +1,3 @@
+rootProject.name = 'rsm'
+include 'rsm-core'
+include 'rsm-tc8'
