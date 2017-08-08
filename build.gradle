@@ -1,14 +1,40 @@
-group 'mobi.eyeline'
-version '0.1'
-
-apply plugin: 'java'
-
-sourceCompatibility = 1.8
-
-repositories {
-    mavenCentral()
+allprojects {
+  group = 'mobi.eyeline.rsm'
+  version = '0.1'
 }
 
-dependencies {
-    testCompile group: 'junit', name: 'junit', version: '4.12'
+subprojects {
+  repositories {
+    mavenCentral()
+
+    ivy {
+      name 'ivySnapshot'
+      credentials {
+        username ivySnapshotUsername
+        password ivySnapshotPassword
+      }
+
+      url 'http://artifactory.office.eyeline.mobi'
+
+      layout 'pattern' , {
+        artifact 'libs-snapshot-local/[organization]/[module]/[revision]/[type]s/[module](-[classifier])-[revision].[ext]'
+        ivy 'libs-snapshot-local/[organization]/[module]/[revision]/[type]s/ivy-[revision].xml'
+      }
+    }
+
+    ivy {
+      name 'ivyRelease'
+      credentials {
+        username ivyReleaseUsername
+        password ivyReleasePassword
+      }
+
+      url 'http://artifactory.office.eyeline.mobi'
+
+      layout 'pattern' , {
+        artifact 'libs-release-local/[organization]/[module]/[revision]/[type]s/[module](-[classifier])-[revision].[ext]'
+        ivy 'libs-release-local/[organization]/[module]/[revision]/[type]s/ivy-[revision].xml'
+      }
+    }
+  }
 }

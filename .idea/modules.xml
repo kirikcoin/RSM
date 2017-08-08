@@ -9,8 +9,6 @@
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/rsm-tc8.iml" filepath="$PROJECT_DIR$/.idea/modules/rsm-tc8.iml" group="rsm-tc8" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/rsm-tc8/rsm-tc8_main.iml" filepath="$PROJECT_DIR$/.idea/modules/rsm-tc8/rsm-tc8_main.iml" group="rsm-tc8" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/rsm-tc8/rsm-tc8_test.iml" filepath="$PROJECT_DIR$/.idea/modules/rsm-tc8/rsm-tc8_test.iml" group="rsm-tc8" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/rsm_main.iml" filepath="$PROJECT_DIR$/.idea/modules/rsm_main.iml" group="rsm" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/rsm_test.iml" filepath="$PROJECT_DIR$/.idea/modules/rsm_test.iml" group="rsm" />
     </modules>
   </component>
 </project>

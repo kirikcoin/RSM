@@ -23,6 +23,7 @@ public class RedisSessionHandlerValve extends ValveBase {
     this.manager = manager;
   }
 
+  @SuppressWarnings("unused") // For declarative registration.
   public RedisSessionHandlerValve() {}
 
   public void setManager(RedisSessionManager manager) {

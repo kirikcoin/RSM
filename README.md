@@ -32,11 +32,11 @@ Tomcat's internal libraries.
   
 - Set up `context.xml` in web application to use persisted sessions:
 
-      <Context>      
+      <Context>
         <Manager className="mobi.eyeline.rsm.tc8.RedisSessionManager"
                  dbUrl="redis://localhost:6379"
                  persistenceStrategy="always"
-        />      
+        />
       </Context>
       
 ### Optimizing for Tomcat authenticator valve

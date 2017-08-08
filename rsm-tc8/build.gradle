@@ -1,32 +1,13 @@
-group 'mobi.eyeline'
-version '0.1'
-
-buildscript {
-  repositories {
-    jcenter()
-  }
-  dependencies {
-    classpath 'com.github.jengelman.gradle.plugins:shadow:2.0.1'
-  }
+plugins {
+  id 'java'
+  id 'com.github.johnrengelman.shadow' version '2.0.1'
+  id 'ivy-publish'
 }
-
-apply plugin: 'java'
-apply plugin: 'com.github.johnrengelman.shadow'
 
 sourceCompatibility = 1.8
 
-repositories {
-  mavenCentral()
-}
-
 ext {
   tomcatVersion = '8.5.6'
-}
-
-shadowJar {
-  relocate 'redis.clients', 'shadow.redis.clients'
-  relocate 'org.msgpack', 'shadow.org.msgpack'
-  relocate 'org.apache.commons.pool2', 'shadow.org.apache.commons.pool2'  // Commons Pool.
 }
 
 dependencies {
@@ -34,6 +15,21 @@ dependencies {
 
   compileOnly group: 'org.apache.tomcat', name: 'tomcat-catalina', version: tomcatVersion
   compileOnly group: 'org.apache.tomcat', name: 'tomcat-coyote', version: tomcatVersion
+}
 
-  testCompile group: 'junit', name: 'junit', version: '4.12'
+shadowJar {
+  relocate 'redis.clients', 'shadow.redis.clients'
+  relocate 'org.msgpack', 'shadow.org.msgpack'
+  relocate 'org.apache.commons.pool2', 'shadow.org.apache.commons.pool2'  // Jedis dependency.
+}
+
+publishing {
+  publications {
+    ivy(IvyPublication) {
+      artifact shadowJar
+    }
+  }
+  repositories {
+    add project.repositories.ivySnapshot
+  }
 }
