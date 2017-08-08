@@ -38,6 +38,24 @@ Tomcat's internal libraries.
                  persistenceStrategy="always"
         />      
       </Context>
+      
+### Optimizing for Tomcat authenticator valve
+
+In case one of Tomcat's default authentication valves is used, it might be a good idea to 
+check for ignored URLs (see `skipUrls` parameter below) before authentication checks.
+This will reduce the number of unnecessary Redis calls.
+
+To do this, register authentication and request filtering valves manually:
+ 
+      <Context>      
+        <Valve className="mobi.eyeline.rsm.tc8.RedisSessionHandlerValve"/>
+        <Valve className="org.apache.catalina.authenticator.FormAuthenticator"/>
+ 
+        <Manager className="mobi.eyeline.rsm.tc8.RedisSessionManager"
+                dbUrl="redis://localhost:6379"
+                persistenceStrategy="always"
+        />
+      </Context>        
     
 ### Manager options
 
@@ -64,6 +82,13 @@ Possible values:
   (possibly ending with `?ln=...` query string) session-less.
  
       .*\.(js|js\.faces)(\?ln=.*)?$
+      
+- `skipAttributes`, optional. If set, should contain Java regular expression.
+  For matching attribute names, `session.setAttribute(key, value)` calls will be ignored.
+   
+  This might be used to filter out unnecessary attributes set by third-party libraries, which 
+  otherwise will take space in Redis storage. 
+  By default no attributes are filtered and `setAttribute` call behaves as usual.
 
 # Debugging
 
@@ -94,4 +119,8 @@ Example:
 To enable verbose logging, append the following line to `$CATALINA_HOME/logging.properties`:
 
     mobi.eyeline.rsm.level = FINEST
+    
+Note that for levels lower than `FINE` verbosity level of output handler should also be changed, e.g.
 
+    java.util.logging.ConsoleHandler.level = FINEST
+ 

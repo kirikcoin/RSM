@@ -8,13 +8,16 @@ import org.apache.catalina.Lifecycle;
 import org.apache.catalina.LifecycleException;
 import org.apache.catalina.LifecycleState;
 import org.apache.catalina.Loader;
+import org.apache.catalina.Pipeline;
 import org.apache.catalina.Session;
+import org.apache.catalina.Valve;
 import org.apache.catalina.session.ManagerBase;
 import org.apache.juli.logging.Log;
 import org.apache.juli.logging.LogFactory;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.regex.Pattern;
 
@@ -45,6 +48,7 @@ public class RedisSessionManager extends ManagerBase implements Lifecycle {
   private PersistenceStrategy persistenceStrategy = PersistenceStrategy.ALWAYS;
 
   private Pattern skipUrls;
+  private Pattern skipAttributes;
 
   @SuppressWarnings("unused")
   public String getDbUrl()            { return dbUrl; }
@@ -66,13 +70,18 @@ public class RedisSessionManager extends ManagerBase implements Lifecycle {
   @SuppressWarnings("unused")
   public String getSkipUrls()               { return skipUrls == null ? null : skipUrls.pattern(); }
 
+  @SuppressWarnings("unused")
+  public void setSkipAttributes(String pattern)   { this.skipAttributes = pattern == null ? null : Pattern.compile(pattern); }
+  @SuppressWarnings("unused")
+  public String getSkipAttributes()               { return skipAttributes == null ? null : skipAttributes.pattern(); }
+
   //
   // END Manager configuration.
   //
 
-  Pattern getSkipUrlsPattern() {
-    return skipUrls;
-  }
+
+  Pattern getSkipUrlsPattern()                { return skipUrls; }
+  public Pattern getSkipAttributesPattern()   { return skipAttributes; }
 
   boolean doSaveImmediate() {
     // TODO: implement this mode.
@@ -95,18 +104,28 @@ public class RedisSessionManager extends ManagerBase implements Lifecycle {
   protected synchronized void startInternal() throws LifecycleException {
     log.info("Session manager starting...");
     super.startInternal();
-
     setState(LifecycleState.STARTING);
 
-    getContext().getPipeline().addValve(new RedisSessionHandlerValve(this));
-
+    initValve();
     serializer = initializeSerializer();
-
     initializeDatabaseConnection();
 
     getContext().setDistributable(true);
 
     log.info("Session manager started OK");
+  }
+
+  private void initValve() {
+    final Pipeline pipeline = getContext().getPipeline();
+
+    for (Valve valve : pipeline.getValves()) {
+      if (valve instanceof RedisSessionHandlerValve) {
+        ((RedisSessionHandlerValve) valve).setManager(this);
+        return;
+      }
+    }
+
+    pipeline.addValve(new RedisSessionHandlerValve(this));
   }
 
   private int getSessionTimeoutSeconds() {
@@ -317,7 +336,9 @@ public class RedisSessionManager extends ManagerBase implements Lifecycle {
     }
 
     final Boolean isCurrentSessionPersisted;
-    final PersistedSessionMetadata metadata = currentSessionSerializationMetadata.get();
+
+    // XXX
+    final PersistedSessionMetadata metadata = Optional.ofNullable(currentSessionSerializationMetadata.get()).orElse(new PersistedSessionMetadata());
     final long originalSessionAttributesHash = metadata.getAttrHash();
     Long sessionAttributesHash = null;
     if (
@@ -375,40 +396,39 @@ public class RedisSessionManager extends ManagerBase implements Lifecycle {
   }
 
   void afterRequest() {
-    if (RedisSessionHandlerValve.shouldSkipSession()) {
-      return;
-    }
+    try {
+      final RedisSession redisSession = currentSession.get();
+      if (redisSession == null) {
+        return;
+      }
 
-    final RedisSession redisSession = currentSession.get();
-    if (redisSession != null) {
-      try {
-        if (redisSession.isValid()) {
-          if (log.isTraceEnabled()) {
-            log.trace("Request with session completed, saving session: " + redisSession.getId());
+      if (!RedisSessionHandlerValve.shouldSkipSession()) {
+        try {
+          if (redisSession.isValid()) {
+            if (log.isTraceEnabled()) {
+              log.trace("Request with session completed, saving session: " + redisSession.getId());
+            }
+
+            save(redisSession, doSaveAlways());
+
+          } else {
+            if (log.isTraceEnabled()) {
+              log.trace("HTTP Session has been invalidated, removing: " + redisSession.getId());
+            }
+
+            remove(redisSession);
           }
 
-          save(redisSession, doSaveAlways());
-
-        } else {
-          if (log.isTraceEnabled()) {
-            log.trace("HTTP Session has been invalidated, removing: " + redisSession.getId());
-          }
-
-          remove(redisSession);
-        }
-
-      } catch (Exception e) {
-        log.error("Error storing/removing session", e);
-
-      } finally {
-        currentSession.remove();
-        currentSessionId.remove();
-        currentSessionIsPersisted.remove();
-
-        if (log.isTraceEnabled()) {
-          log.trace("Session removed from ThreadLocal: " + redisSession.getIdInternal());
+        } catch (Exception e) {
+          log.error("Error storing/removing session", e);
         }
       }
+
+    } finally {
+      currentSession.remove();
+      currentSessionId.remove();
+      currentSessionSerializationMetadata.remove();
+      currentSessionIsPersisted.remove();
     }
   }
 

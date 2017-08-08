@@ -20,7 +20,7 @@ repositories {
 }
 
 ext {
-  tomcatVersion = '8.5.16'
+  tomcatVersion = '8.5.6'
 }
 
 shadowJar {

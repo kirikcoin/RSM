@@ -17,9 +17,15 @@ public class RedisSessionHandlerValve extends ValveBase {
 
   private static final ThreadLocal<Boolean> skipSession = ThreadLocal.withInitial(() -> null);
 
-  private final RedisSessionManager manager;
+  private RedisSessionManager manager;
 
   RedisSessionHandlerValve(RedisSessionManager manager) {
+    this.manager = manager;
+  }
+
+  public RedisSessionHandlerValve() {}
+
+  public void setManager(RedisSessionManager manager) {
     this.manager = manager;
   }
 

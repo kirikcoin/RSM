@@ -83,6 +83,7 @@ public class PersistedSessionSerializerTest {
         put("stringKey", "foo");
 
         put("uuidKey", refUUID);
+        put("uuidArrayKey", new UUID[] {refUUID});
       }};
 
       bytes = serializer.serialize(session, metadata);
@@ -102,6 +103,7 @@ public class PersistedSessionSerializerTest {
 
     assertEquals("foo", session.attributes.get("stringKey"));
     assertEquals(refUUID, session.attributes.get("uuidKey"));
+    assertArrayEquals(new UUID[] { refUUID }, (Object[]) session.attributes.get("uuidArrayKey"));
   }
 
 

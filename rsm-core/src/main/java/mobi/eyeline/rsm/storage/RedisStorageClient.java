@@ -6,45 +6,31 @@ import redis.clients.jedis.Protocol;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.Objects;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import static java.util.Objects.requireNonNull;
 import static redis.clients.util.SafeEncoder.encode;
 
 public class RedisStorageClient implements StorageClient {
 
   private final Logger log = Logger.getLogger(getClass().getName());
 
-  private final ExecutorService executor = Executors.newCachedThreadPool(
-      new ThreadFactory() {
-        private final AtomicInteger idx = new AtomicInteger(0);
-
-        @Override
-        public Thread newThread(Runnable r) {
-          final Thread thread = new Thread(r);
-          thread.setName("rsm-" + idx.getAndIncrement());
-          return thread;
-        }
-      }
-  );
-
   private final JedisPool jedisPool;
 
   public RedisStorageClient(String redisUrl, int timeout) {
-    Objects.requireNonNull(redisUrl, "Redis database URL not set");
+    requireNonNull(redisUrl, "Redis database URL not set");
 
     timeout = timeout <= 0 ? Protocol.DEFAULT_TIMEOUT : timeout;
 
     try {
       final URI uri = new URI(redisUrl);
       jedisPool = new JedisPool(uri, timeout);
+
     } catch (URISyntaxException e) {
       throw new RuntimeException(e);
     }
@@ -117,19 +103,71 @@ public class RedisStorageClient implements StorageClient {
   private <T> Future<T> submit(Function<Jedis, T> task) {
     final long startMillis = log.isLoggable(Level.FINER) ? System.currentTimeMillis() : 0;
 
-    return executor.submit(() -> {
-      try (Jedis jedis = jedisPool.getResource()) {
-        return task.apply(jedis);
+    try (Jedis jedis = jedisPool.getResource()) {
+      return ImmediateFuture.completedFuture(task.apply(jedis));
 
-      } catch (Exception e) {
-        log.log(Level.WARNING, "Failed executing command", e);
-        throw e;
+    } catch (Exception e) {
+      log.log(Level.WARNING, "Failed executing command", e);
+      return ImmediateFuture.failedFuture(e);
 
-      } finally {
-        if (startMillis > 0) {
-          log.finer("Operation time, ms.: " + (System.currentTimeMillis() - startMillis));
-        }
+    } finally {
+      if (startMillis > 0) {
+        log.finer("Operation time, ms.: " + (System.currentTimeMillis() - startMillis));
       }
-    });
+    }
   }
+
+
+  //
+  //
+  //
+
+  private static class ImmediateFuture<T> implements Future<T> {
+    private final T value;
+    private final Throwable failure;
+
+    private ImmediateFuture(T v, Throwable failure) {
+      this.value = v;
+      this.failure = failure;
+    }
+
+    static <T> ImmediateFuture<T> completedFuture(T value) {
+      return new ImmediateFuture<>(value, null);
+    }
+
+    static <T> ImmediateFuture<T> failedFuture(Throwable e) {
+      return new ImmediateFuture<>(null, requireNonNull(e));
+    }
+
+    @Override
+    public boolean cancel(boolean mayInterruptIfRunning) {
+      return false;
+    }
+
+    @Override
+    public boolean isCancelled() {
+      return false;
+    }
+
+    @Override
+    public boolean isDone() {
+      return true;
+    }
+
+    @Override
+    public T get() throws ExecutionException {
+      if (this.failure != null) {
+        throw new ExecutionException(this.failure);
+
+      } else {
+        return this.value;
+      }
+    }
+
+    @Override
+    public T get(long timeout, TimeUnit unit) throws ExecutionException {
+      return this.get();
+    }
+  }
+
 }

@@ -15,6 +15,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 
@@ -41,13 +42,22 @@ public class RedisSession extends StandardSession implements PersistableSession 
 
   @Override
   public void setAttribute(String key, Object value) {
+    final RedisSessionManager manager = getManager();
+
+    if (manager.getSkipAttributesPattern() != null &&
+        manager.getSkipAttributesPattern().matcher(key).matches()) {
+      if (log.isTraceEnabled()) {
+        log.trace("Ignoring setAttribute, key = [" + key + "]");
+      }
+      return;
+    }
+
     final Object prevValue = getAttribute(key);
     super.setAttribute(key, value);
 
     //
     //  Check if changed and persist if necessary.
     //
-    final RedisSessionManager manager = (RedisSessionManager) this.manager;
     if ((value != null || prevValue != null) &&
         (value == null || prevValue == null || !value.getClass().isInstance(prevValue) || !value.equals(prevValue))) {
       if (manager.doSaveImmediate()) {
@@ -64,14 +74,11 @@ public class RedisSession extends StandardSession implements PersistableSession 
     }
   }
 
-  //
-  //  Check if changed and persist if necessary.
-  //
   @Override
   public void removeAttribute(String name) {
     super.removeAttribute(name);
 
-    final RedisSessionManager manager = (RedisSessionManager) this.manager;
+    final RedisSessionManager manager = getManager();
     if (manager.doSaveImmediate()) {
       try {
         manager.save(this, true);
@@ -86,14 +93,39 @@ public class RedisSession extends StandardSession implements PersistableSession 
   }
 
   @Override
-  public void setId(String id) {
+  public void setId(String id, boolean notify) {
+    if (Objects.equals(this.id, id)) {
+      // Avoid expensive save/delete operation if ID is unchanged.
+      return;
+    }
+
+    if (this.id != null) {
+      getManager().remove(this);
+    }
+
     this.id = id;
+
+    try {
+      getManager().save(this, true);
+
+    } catch (IOException e) {
+      throw new RuntimeException("Failed saving session", e);
+    }
+
+    if (notify) {
+      tellNew();
+    }
   }
 
   @Override
   public void setPrincipal(Principal principal) {
     dirty = true;
     super.setPrincipal(principal);
+  }
+
+  @Override
+  public RedisSessionManager getManager() {
+    return (RedisSessionManager) this.manager;
   }
 
   @Override
