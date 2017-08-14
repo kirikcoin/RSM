@@ -1,5 +1,7 @@
 package mobi.eyeline.rsm.tc8;
 
+import mobi.eyeline.rsm.DirtySessionTracker;
+import mobi.eyeline.rsm.model.GenericSession;
 import mobi.eyeline.rsm.model.PersistableSession;
 import mobi.eyeline.rsm.model.PersistedSession;
 import org.apache.catalina.Manager;
@@ -12,19 +14,17 @@ import java.io.IOException;
 import java.security.Principal;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
 
-public class RedisSession extends StandardSession implements PersistableSession {
+public class RedisSession extends StandardSession implements PersistableSession, GenericSession {
 
   private final Log log = LogFactory.getLog(RedisSession.class);
 
-  private HashMap<String, Object> changedAttributes;
-  private boolean dirty;
+  private final DirtySessionTracker dirtyTracker = new DirtySessionTracker();
 
   RedisSession(Manager manager) {
     super(manager);
@@ -32,12 +32,11 @@ public class RedisSession extends StandardSession implements PersistableSession 
   }
 
   boolean isDirty() {
-    return dirty || !changedAttributes.isEmpty();
+    return dirtyTracker.isDirty();
   }
 
   void resetDirtyTracking() {
-    changedAttributes = new HashMap<>();
-    dirty = false;
+    dirtyTracker.reset();
   }
 
   @Override
@@ -58,8 +57,7 @@ public class RedisSession extends StandardSession implements PersistableSession 
     //
     //  Check if changed and persist if necessary.
     //
-    if ((value != null || prevValue != null) &&
-        (value == null || prevValue == null || !value.getClass().isInstance(prevValue) || !value.equals(prevValue))) {
+    if (dirtyTracker.isChanged(prevValue, value)) {
       if (manager.doSaveImmediate()) {
         try {
           manager.save(this, true);
@@ -69,7 +67,7 @@ public class RedisSession extends StandardSession implements PersistableSession 
         }
 
       } else {
-        changedAttributes.put(key, value);
+        dirtyTracker.markDirty();
       }
     }
   }
@@ -88,7 +86,7 @@ public class RedisSession extends StandardSession implements PersistableSession 
       }
 
     } else {
-      dirty = true;
+      dirtyTracker.markDirty();
     }
   }
 
@@ -119,7 +117,7 @@ public class RedisSession extends StandardSession implements PersistableSession 
 
   @Override
   public void setPrincipal(Principal principal) {
-    dirty = true;
+    dirtyTracker.markDirty();
     super.setPrincipal(principal);
   }
 

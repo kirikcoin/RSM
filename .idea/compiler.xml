@@ -4,6 +4,8 @@
     <bytecodeTargetLevel>
       <module name="rsm-core_main" target="1.8" />
       <module name="rsm-core_test" target="1.8" />
+      <module name="rsm-jersey_main" target="1.8" />
+      <module name="rsm-jersey_test" target="1.8" />
       <module name="rsm-tc8_main" target="1.8" />
       <module name="rsm-tc8_test" target="1.8" />
       <module name="rsm_main" target="1.8" />

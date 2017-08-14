@@ -11,7 +11,11 @@ public class PersistedSessionMetadata implements Serializable {
   private long attrHash;
 
   public PersistedSessionMetadata() {
-    this.attrHash = 0;
+    this(0);
+  }
+
+  public PersistedSessionMetadata(long attrHash) {
+    this.attrHash = attrHash;
   }
 
   public long getAttrHash() {

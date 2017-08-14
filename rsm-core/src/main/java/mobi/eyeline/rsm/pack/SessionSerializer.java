@@ -34,7 +34,7 @@ public class SessionSerializer {
     this.loader = loader;
   }
 
-  protected long attributesHashFrom(Map<String, Object> attributes) throws IOException {
+  public long attributesHashFrom(Map<String, Object> attributes) throws IOException {
     final MessageBufferPacker pack = MessagePack.newDefaultBufferPacker();
     pack.packValue(MsgPackUtil.asValue(attributes));
 

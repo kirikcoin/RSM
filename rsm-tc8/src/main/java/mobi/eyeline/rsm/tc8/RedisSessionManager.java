@@ -1,5 +1,6 @@
 package mobi.eyeline.rsm.tc8;
 
+import mobi.eyeline.rsm.GenericSessionManager;
 import mobi.eyeline.rsm.PersistenceStrategy;
 import mobi.eyeline.rsm.model.PersistedSessionMetadata;
 import mobi.eyeline.rsm.storage.RedisStorageClient;
@@ -22,7 +23,9 @@ import java.util.concurrent.ExecutionException;
 import java.util.regex.Pattern;
 
 
-public class RedisSessionManager extends ManagerBase implements Lifecycle {
+public class RedisSessionManager
+    extends ManagerBase
+    implements Lifecycle, GenericSessionManager<RedisSession> {
 
   private final Log log = LogFactory.getLog(RedisSessionManager.class);
 
@@ -80,15 +83,20 @@ public class RedisSessionManager extends ManagerBase implements Lifecycle {
   //
 
 
-  Pattern getSkipUrlsPattern()                { return skipUrls; }
+  @Override
+  public Pattern getSkipUrlsPattern()                { return skipUrls; }
+
+  @Override
   public Pattern getSkipAttributesPattern()   { return skipAttributes; }
 
-  boolean doSaveImmediate() {
+  @Override
+  public boolean doSaveImmediate() {
     // TODO: implement this mode.
     return false;
   }
 
-  private boolean doSaveAlways() {
+  @Override
+  public boolean doSaveAlways() {
     return persistenceStrategy == PersistenceStrategy.ALWAYS;
   }
 
@@ -225,7 +233,7 @@ public class RedisSessionManager extends ManagerBase implements Lifecycle {
   @Override
   public void add(Session session) {
     try {
-      save(session, false);
+      save((RedisSession) session, false);
 
     } catch (IOException e) {
       throw new RuntimeException("Failed saving session", e);
@@ -321,7 +329,8 @@ public class RedisSessionManager extends ManagerBase implements Lifecycle {
     return new DeserializedSessionContainer(session, metadata);
   }
 
-  void save(Session session, boolean forceSave) throws IOException {
+  @Override
+  public void save(RedisSession session, boolean forceSave) throws IOException {
     saveInternal(session, forceSave);
   }
 
@@ -383,6 +392,11 @@ public class RedisSessionManager extends ManagerBase implements Lifecycle {
 
   @Override
   public void remove(Session session) {
+    remove(session, false);
+  }
+
+  @Override
+  public void remove(RedisSession session) {
     remove(session, false);
   }
 

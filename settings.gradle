@@ -1,2 +1,2 @@
 rootProject.name = 'rsm'
-include 'rsm-core', 'rsm-tc8'
+include 'rsm-core', 'rsm-tc8', 'rsm-jersey'
