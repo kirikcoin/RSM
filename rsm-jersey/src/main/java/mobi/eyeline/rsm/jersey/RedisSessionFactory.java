@@ -37,19 +37,24 @@ public class RedisSessionFactory implements Factory<RedisSession> {
       }
 
       return NULL_SESSION;
+    }
 
-    } else {
-      if (log.isLoggable(Level.FINEST)) {
-        log.finest("Loading session ID = [" + sessionId + "]");
-      }
+    if (log.isLoggable(Level.FINEST)) {
+      log.finest("Loading session ID = [" + sessionId + "]");
+    }
 
-      try {
-        return manager.findSession(sessionId);
-
-      } catch (IOException e) {
-        log.log(Level.WARNING, "Failed loading session for ID = [" + sessionId + "]", e);
+    try {
+      final RedisSession redisSession = manager.findSession(sessionId);
+      if (redisSession == null) {
+        log.finest("Session ID = [" + sessionId + "] not found");
         return NULL_SESSION;
       }
+
+      return redisSession;
+
+    } catch (IOException e) {
+      log.log(Level.WARNING, "Failed loading session for ID = [" + sessionId + "]", e);
+      return NULL_SESSION;
     }
   }
 

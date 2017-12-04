@@ -1,6 +1,6 @@
 allprojects {
   group = 'mobi.eyeline.rsm'
-  version = '0.1'
+  version = '0.2'
 }
 
 subprojects {

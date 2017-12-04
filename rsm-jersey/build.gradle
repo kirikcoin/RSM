@@ -6,15 +6,12 @@ plugins {
 
 sourceCompatibility = 1.8
 
-ext {
-  tomcatVersion = '8.5.6'
-}
-
 dependencies {
   compile project(':rsm-core')
 
-  compileOnly group: 'org.apache.tomcat', name: 'tomcat-catalina', version: tomcatVersion
-  compileOnly group: 'org.apache.tomcat', name: 'tomcat-coyote', version: tomcatVersion
+  compileOnly 'org.glassfish.hk2:hk2-api:2.5.0-b05'
+  compileOnly 'javax.ws.rs:javax.ws.rs-api:2.0.1'
+  compileOnly 'org.glassfish.jersey.core:jersey-common:2.23.2'
 }
 
 shadowJar {
