@@ -3,6 +3,7 @@ package mobi.eyeline.rsm.jersey;
 import org.glassfish.hk2.api.Factory;
 
 import javax.inject.Inject;
+import javax.ws.rs.core.Cookie;
 import javax.ws.rs.core.HttpHeaders;
 import java.io.IOException;
 import java.util.logging.Level;
@@ -29,7 +30,22 @@ public class RedisSessionFactory implements Factory<RedisSession> {
 
   @Override
   public RedisSession provide() {
-    final String sessionId = headers.getHeaderString(manager.getSessionCookieName());
+    // Session ID might be set either:
+    //  - As a separate header,
+    //  - Or in cookie.
+    final String sessionId;
+    {
+      final String sessionCookieName = manager.getSessionCookieName();
+
+      final String sessionIdHeader = headers.getHeaderString(sessionCookieName);
+      if (sessionIdHeader == null || sessionIdHeader.isEmpty()) {
+        final Cookie sessionCookie = headers.getCookies().get(sessionCookieName);
+        sessionId = (sessionCookie == null) ? null : sessionCookie.getValue();
+
+      } else {
+        sessionId = sessionIdHeader;
+      }
+    }
 
     if (sessionId == null || sessionId.isEmpty()) {
       if (log.isLoggable(Level.FINEST)) {
