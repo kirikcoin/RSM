@@ -2,6 +2,7 @@ plugins {
   id 'java'
   id 'com.github.johnrengelman.shadow' version '2.0.1'
   id 'ivy-publish'
+  id "com.github.jk1.dependency-license-report" version "0.8"
 }
 
 sourceCompatibility = 1.8
@@ -29,4 +30,9 @@ publishing {
   repositories {
     add project.repositories.ivyRelease
   }
+}
+
+licenseReport {
+  renderers = [new com.github.jk1.license.render.InventoryHtmlReportRenderer()]
+  configurations = ['compile']
 }
